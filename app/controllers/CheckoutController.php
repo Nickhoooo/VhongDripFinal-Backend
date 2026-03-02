@@ -1,5 +1,4 @@
 <?php
-session_start();
 
 require_once __DIR__ . "/../models/User.php";
 require_once __DIR__ . "/../config/database.php";
@@ -9,14 +8,17 @@ use PHPMailer\PHPMailer\Exception;
 class CheckoutController {
 
     public function checkout(){
-
         header('Content-Type: application/json');
-
-
-
+        
         require __DIR__ . "/../../PHPMailer/Exception.php";
         require __DIR__ . "/../../PHPMailer/PHPMailer.php";
         require __DIR__ . "/../../PHPMailer/SMTP.php";
+
+        // ✅ Debug logging
+        error_log("=== CHECKOUT DEBUG ===");
+        error_log("Session ID: " . session_id());
+        error_log("Session data: " . print_r($_SESSION, true));
+        error_log("User ID set: " . (isset($_SESSION['user_id']) ? 'YES' : 'NO'));
 
         if (!isset($_SESSION['user_id'], $_SESSION['email'])) {
             http_response_code(401);
@@ -44,8 +46,7 @@ class CheckoutController {
             $mail->Password   = 'wegd vevh vein wwzl';
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->Port       = 587;
-            $mail->SMTPDebug = 2;
-            $mail->Debugoutput = 'error_log';
+
             $mail->setFrom('xenonchan29@gmail.com', 'Vhong Website');
             $mail->addAddress($user_email);
 
@@ -68,9 +69,7 @@ class CheckoutController {
                 'order_id' => $order_id
             ]);
 
-        } 
-        
-        catch (Exception $e) {
+        } catch (Exception $e) {
             http_response_code(500);
             echo json_encode([
                 'success' => false,

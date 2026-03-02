@@ -1,9 +1,4 @@
 <?php
-// ✅ Session FIRST
-
-
-// ✅ Then headers
-
 header("Content-Type: application/json");
 
 
