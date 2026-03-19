@@ -1,58 +1,147 @@
 <?php
 require_once __DIR__ . "/../models/User.php";
 require_once __DIR__ . "/../config/database.php";
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-class AuthController{
-
-
-
-    public function register()
+class AuthController
 {
-    require __DIR__ . "/../../PHPMailer/Exception.php";
-    require __DIR__ . "/../../PHPMailer/PHPMailer.php";
-    require __DIR__ . "/../../PHPMailer/SMTP.php";
-    
-    header('Content-Type: application/json');
+    public function register()
+    {
+        require_once __DIR__ . "/../../PHPMailer/Exception.php";
+        require_once __DIR__ . "/../../PHPMailer/PHPMailer.php";
+        require_once __DIR__ . "/../../PHPMailer/SMTP.php";
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST'){
+        header('Content-Type: application/json');
 
-        $firstname = $_POST['firstname'] ?? '';
-        $lastname = $_POST['lastname'] ?? '';
-        $phone = $_POST['phone'] ?? '';
-        $address = $_POST['address'] ?? '';
-        $email = $_POST['email'] ?? '';
-        $username = $_POST['username'] ?? '';
-        $password = $_POST['password'] ?? '';
-        $terms = $_POST['terms'] ?? false;
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-        // Validation
-        if (!$firstname || !$lastname || !$phone || !$address || !$email || !$username || !$password){
+            $firstname = $_POST['firstname'] ?? '';
+            $lastname = $_POST['lastname'] ?? '';
+            $phone = $_POST['phone'] ?? '';
+            $address = $_POST['address'] ?? '';
+            $modeofpayment = $_POST['ModeofPayment'] ?? '';
+            $email = $_POST['email'] ?? '';
+            $username = $_POST['username'] ?? '';
+            $password = $_POST['password'] ?? '';
+            $terms = $_POST['terms'] ?? false;
+
+            // Validation
+            if (!$firstname || !$lastname || !$phone || !$address || !$email || !$username || !$password || !$modeofpayment) {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "All fields are required"
+                ]);
+                return;
+            }
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "Invalid Email"
+                ]);
+                return;
+            }
+
+            if (strlen($password) < 6) {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "Your password is too short"
+                ]);
+                return;
+            }
+
+            if (!$terms) {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "You must agree to the terms and conditions"
+                ]);
+                return;
+            }
+
+            $user = new User((new Database())->connect());
+
+            // Generate verification code
+            $verification_code = bin2hex(random_bytes(16));
+
+            $result = $user->register($firstname, $lastname, $phone, $address, $username, $email, $password, $verification_code, $modeofpayment);
+
+            if (!$result['success']) {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => $result['error']
+                ]);
+                return;
+            }
+
+            //  SEND VERIFICATION EMAIL
+            $mail = new PHPMailer(true);
+
+            try {
+                $mail->isSMTP();
+                $mail->Host       = 'smtp.gmail.com';
+                $mail->SMTPAuth   = true;
+                $mail->Username   = 'xenonchan29@gmail.com';
+                $mail->Password   = 'wegd vevh vein wwzl';
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port       = 587;
+
+                $mail->setFrom('xenonchan29@gmail.com', 'Vhong Website');
+                $mail->addAddress($email);
+
+                $mail->isHTML(true);
+                $mail->Subject = 'Verify Your Email';
+                $verification_link = "https://vhongsdrip.great-site.net/verify?code=$verification_code";
+                $mail->Body    = "
+                <h2>Welcome to Vhong Website!</h2>
+                <p>Please verify your email by clicking the link below:</p>
+                <a href='$verification_link'>Verify Email</a>
+                <p>Or copy this link: $verification_link</p>
+            ";
+
+                $mail->send();
+
+                echo json_encode([
+                    "status" => "success",
+                    "message" => "Registration successful! Please check your email to verify your account."
+                ]);
+            } catch (Exception $e) {
+                echo json_encode([
+                    "status" => "error",
+                    "message" => "Registration successful but email failed to send: {$mail->ErrorInfo}"
+                ]);
+            }
+        }
+    }
+
+
+    public function login()
+    {
+
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $email = $_POST['email'] ?? '';
+            $password = $_POST['password'] ?? '';
+            $terms = $_POST['terms'] ?? false;
+        }
+
+        if (!$email || !$password) {
             echo json_encode([
                 "status" => "error",
-                "message" => "All fields are required"
+                "message" => "All field are required"
             ]);
             return;
         }
-        
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)){
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             echo json_encode([
                 "status" => "error",
                 "message" => "Invalid Email"
             ]);
             return;
         }
-        
-        if(strlen($password) < 6){
-            echo json_encode([
-                "status" => "error",
-                "message" => "Your password is too short"
-            ]);
-            return;
-        }
-        
-        if (!$terms){
+        if (!$terms) {
             echo json_encode([
                 "status" => "error",
                 "message" => "You must agree to the terms and conditions"
@@ -61,164 +150,79 @@ class AuthController{
         }
 
         $user = new User((new Database())->connect());
-        
-        // Generate verification code
-        $verification_code = bin2hex(random_bytes(16));
-        
-        $result = $user->register($firstname, $lastname, $phone, $address, $username, $email, $password, $verification_code);
+        $result = $user->getByEmail($email);
 
-        if (!$result['success']) {
+        if ($result == null) {
+    
             echo json_encode([
                 "status" => "error",
-                "message" => $result['error']
+                "message" => "Invalid email or password"
+            ]); 
+            return;
+        }
+
+        $isPasswordCorrect = password_verify($password, $result['password']);
+
+        if (!$isPasswordCorrect) {
+            echo json_encode([
+                "status" => "error",
+                "message" => "Invalid email or password"
             ]);
             return;
         }
 
-        //  SEND VERIFICATION EMAIL
-        $mail = new PHPMailer(true);
-
-        try {
-            $mail->isSMTP();
-            $mail->Host       = 'smtp.gmail.com';
-            $mail->SMTPAuth   = true;
-            $mail->Username   = 'xenonchan29@gmail.com';
-            $mail->Password   = 'wegd vevh vein wwzl';
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port       = 587;
-
-            $mail->setFrom('xenonchan29@gmail.com', 'Vhong Website');
-            $mail->addAddress($email);
-
-            $mail->isHTML(true);
-            $mail->Subject = 'Verify Your Email';
-            $verification_link = "https://vhongsdrip.great-site.net/verify?code=$verification_code";
-            $mail->Body    = "
-                <h2>Welcome to Vhong Website!</h2>
-                <p>Please verify your email by clicking the link below:</p>
-                <a href='$verification_link'>Verify Email</a>
-                <p>Or copy this link: $verification_link</p>
-            ";
-
-            $mail->send();
-
-            echo json_encode([
-                "status" => "success",
-                "message" => "Registration successful! Please check your email to verify your account."
-            ]);
-
-        } catch (Exception $e) {
+        // Check if email is verified
+        if ($result['is_verified'] == 0) {
             echo json_encode([
                 "status" => "error",
-                "message" => "Registration successful but email failed to send: {$mail->ErrorInfo}"
+                "message" => "Please verify your email before logging in"
             ]);
+            return;
         }
-    }
-}
 
 
-     public function login() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
-    header('Content-Type: application/json');
+        $_SESSION['user_id'] = $result['id'];
+        $_SESSION['username'] = $result['username'];
+        $_SESSION['email'] = $result['email'];
+        $_SESSION['role'] = $result['role'];
 
-    if($_SERVER['REQUEST_METHOD'] == 'POST'){
-        $email = $_POST['email'] ?? '';
-        $password = $_POST['password'] ?? '';
-        $terms = $_POST['terms'] ?? false;
-    }
+        error_log("LOGIN SESSION SAVED:");
+        error_log(print_r($_SESSION, true));
 
-    if(!$email || !$password){
+
         echo json_encode([
-            "status" => "error",
-            "message" => "All field are required"
+            "status" => "success",
+            "message" => "Login successful",
+            "role" => $result['role'],
+            "user" => [
+                "id" => $result['id'],
+                "username" => $result['username'],
+                "email" => $result['email']
+            ]
         ]);
-        return;
-    }
-    if(!filter_var($email, FILTER_VALIDATE_EMAIL)){
-        echo json_encode([
-            "status" => "error",
-            "message" => "Invalid Email"
-        ]);
-        return;
-    } 
-    if(!$terms){
-        echo json_encode([
-            "status" => "error",
-            "message" => "You must agree to the terms and conditions"
-        ]);
-        return;
     }
 
-    $user = new User((new Database())->connect());
-    $result = $user->getByEmail($email);
+    public function verify()
+    {
 
-    if ($result == null){
-        echo json_encode([
-            "status" => "error",
-            "message" => "Invalid email or password"
-        ]);
-        return;
-    }
-    
-    $isPasswordCorrect = password_verify($password, $result['password']);
+        header('Content-Type: text/html; charset=UTF-8');
 
-    if (!$isPasswordCorrect) {
-        echo json_encode([
-            "status" => "error",
-            "message" => "Invalid email or password"
-        ]);
-        return;
-    }
+        if (!isset($_GET['code'])) {
+            echo "<h2>Verification Failed</h2><p>Verification code is missing.</p>";
+            return;
+        }
 
-    // Check if email is verified
-    if ($result['is_verified'] == 0) {
-        echo json_encode([
-            "status" => "error",
-            "message" => "Please verify your email before logging in"
-        ]);
-        return;
-    }
+        $verification_code = $_GET['code'];
 
-   
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+        $user = new User((new Database())->connect());
+        $result = $user->verifyEmail($verification_code);
 
-    $_SESSION['user_id'] = $result['id'];
-    $_SESSION['username'] = $result['username'];
-    $_SESSION['email'] = $result['email'];
-
-    error_log("LOGIN SESSION SAVED:");
-    error_log(print_r($_SESSION, true));
-
-
-    echo json_encode([
-        "status" => "success",
-        "message" => "Login successful",
-        "user" => [
-            "id" => $result['id'],
-            "username" => $result['username'],
-            "email" => $result['email']
-        ]
-    ]);
-}
-
-public function verify() {
-
-    header('Content-Type: text/html; charset=UTF-8');
-    
-    if (!isset($_GET['code'])) {
-        echo "<h2>Verification Failed</h2><p>Verification code is missing.</p>";
-        return;
-    }
-
-    $verification_code = $_GET['code'];
-    
-    $user = new User((new Database())->connect());
-    $result = $user->verifyEmail($verification_code);
-    
-    if ($result['success']) {
-        echo '
+        if ($result['success']) {
+            echo '
         <!DOCTYPE html>
         <html>
         <head>
@@ -274,14 +278,13 @@ public function verify() {
                 <div class="success-icon">✓</div>
                 <h2>Email Verified Successfully!</h2>
                 <p>Your account has been activated. You can now login to your account.</p>
-                <a href="https://vhongsdrip.great-site.net/login
-                " class="btn">Go to Login</a>
+                <a href="https://vhongsdrip.great-site.net/login" class="btn">Go to Login</a>
             </div>
         </body>
         </html>
         ';
-    } else {
-        echo '
+        } else {
+            echo '
         <!DOCTYPE html>
         <html>
         <head>
@@ -328,8 +331,39 @@ public function verify() {
         </body>
         </html>
         ';
+        }
     }
-}
+    public function profile()
+    {
 
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    if (!isset($_SESSION['user_id'])) {
+        http_response_code(401);
+        echo json_encode([
+            "status" => "error",
+            "message" => "User not logged in"
+        ]);
+        return;
+    }
+
+    $conn = (new Database())->connect();
+
+    $stmt = $conn->prepare("
+        SELECT firstname, lastname, address, payment_mode
+        FROM users
+        WHERE id=?
+    ");
+
+    $stmt->bind_param("i", $_SESSION['user_id']);
+    $stmt->execute();
+
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+
+    echo json_encode($user);
+    }
 
 }

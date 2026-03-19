@@ -9,7 +9,7 @@ class User {
        $this->conn = $db;
     }
 
-    public function register($firstname, $lastname, $phone, $address, $username, $email, $password, $verification_code)
+    public function register($firstname, $lastname, $phone, $address, $username, $email, $password, $verification_code, $modeofpayment)
     {
         try {
             // Check username
@@ -37,8 +37,8 @@ class User {
             $is_verified = 0;
 
             // Insert user
-            $stmt = $this->conn->prepare("INSERT INTO users (firstname, lastname, phone, address, username, email, password, is_verified, verification_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssssssis", $firstname, $lastname, $phone, $address, $username, $email, $hashed_password, $is_verified, $verification_code);
+            $stmt = $this->conn->prepare("INSERT INTO users (firstname, lastname, phone, address, username, email, password, is_verified, verification_code, payment_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("sssssssiss", $firstname, $lastname, $phone, $address, $username, $email, $hashed_password, $is_verified, $verification_code, $modeofpayment);
 
             if ($stmt->execute()) {
                 return ['success' => true];
@@ -67,6 +67,9 @@ class User {
     }
     
     public function getByEmail($email) {
+        if (!$this->conn) {
+            return null;
+        }
         $sql = "SELECT * FROM users WHERE email = ?";
         $stmt = $this->conn->prepare($sql);
         $stmt->bind_param("s", $email);

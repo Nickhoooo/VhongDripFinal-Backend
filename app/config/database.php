@@ -4,7 +4,7 @@ class Database
     private $host = "sql103.infinityfree.com";
     private $user = "if0_40869155";
     private $pass = "VhongDrip1122";
-    private $db   = "if0_40869155_vhongsdrip";
+    private $db   = "if0_40869155_vhongsdripfinal";
 
     public function connect()
     {

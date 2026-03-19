@@ -12,6 +12,9 @@ class Product
 
     public function getAllProducts()
     {
+        if (!$this->conn) {
+            return false;
+        }
         $sql = "SELECT * FROM products";
         return $this->conn->query($sql);
     }

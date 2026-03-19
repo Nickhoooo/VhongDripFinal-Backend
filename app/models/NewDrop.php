@@ -21,4 +21,24 @@ class NewDrops
     {
         return $this->conn ? $this->conn->error : 'No connection';
     }
+
+    public function addNewDrop($name,$price,$image,$category,$details)
+{
+    $query = "INSERT INTO newdrop 
+    (name,price,image,category,details)
+    VALUES (?,?,?,?,?)";
+
+    $stmt = $this->conn->prepare($query);
+
+    $stmt->bind_param(
+        "sdsss",
+        $name,
+        $price,
+        $image,
+        $category,
+        $details
+    );
+
+    return $stmt->execute();
+}
 }

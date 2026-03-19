@@ -45,12 +45,45 @@ class ProductController
         } catch (Exception $e) {
             error_log("[ProductController] exception: " . $e->getMessage());
             http_response_code(500);
-            $out = json_encode(["error" => "Server error: " . $e->getMessage()]);
+            $out = json_encode(["error" => "Server error: " . $e->getMessage()]); 
             if ($out === false) {
                 error_log("[ProductController] json_encode(exception) returned false: " . json_last_error_msg());
             }
             error_log("[ProductController] output (exception) length: " . strlen($out));
             echo $out;
+        }
+    }
+
+
+    public function delete()
+    {
+        try {
+
+            $data = json_decode(file_get_contents("php://input"), true);
+            $id = $data['id'] ?? 0;
+
+            if (!$id) {
+                http_response_code(400);
+                echo json_encode(["error" => "Invalid ID"]);
+                return;
+            }
+
+            $conn = (new Database())->connect();
+            $stmt = $conn->prepare("DELETE FROM products WHERE id=?");
+            $stmt->bind_param("i", $id);
+
+            if ($stmt->execute()) {
+                echo json_encode(["success" => true]);
+            } else {
+                echo json_encode(["error" => $conn->error]);
+            }
+
+        } catch (Exception $e) {
+
+            error_log("[ProductController delete] " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(["error" => "Server error"]);
+
         }
     }
 }
